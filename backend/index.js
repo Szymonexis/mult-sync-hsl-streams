@@ -21,7 +21,7 @@ app.get('/api/streams', (req, res) => {
 	const urls = [];
 	for (let i = 1; i <= count; i++) {
 		urls.push(
-			`${req.protocol}://${req.get('host')}/streams/stream${i}/playlist.m3u8`
+			`${req.protocol}://${req.get('host')}/streams/stream${i}/master.m3u8`
 		);
 	}
 	res.json(urls);
