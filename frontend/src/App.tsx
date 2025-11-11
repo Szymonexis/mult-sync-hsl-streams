@@ -56,7 +56,10 @@ const App: React.FC = () => {
 				}));
 
 				setLevels(availableLevels);
-				setCurrentLevel(hls.currentLevel);
+				
+				// Lock to the first level (Stream A) and disable auto level switching
+				hls.currentLevel = 0;
+				setCurrentLevel(0);
 			});
 
 			hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
@@ -68,10 +71,13 @@ const App: React.FC = () => {
 			hls.on(Hls.Events.ERROR, (_, data) => {
 				// Ignore non-fatal fragParsingError for tiny fragments at the end
 				if (!data.fatal && data.details === 'fragParsingError') {
-					console.warn('Non-fatal fragment parsing error (likely empty end fragment), ignoring:', data);
+					console.warn(
+						'Non-fatal fragment parsing error (likely empty end fragment), ignoring:',
+						data
+					);
 					return;
 				}
-				
+
 				console.error('HLS error:', data);
 				if (data.fatal) {
 					switch (data.type) {
@@ -96,7 +102,7 @@ const App: React.FC = () => {
 				console.log('Video ended, looping...');
 				if (video && hlsRef.current) {
 					video.currentTime = 0;
-					video.play().catch(err => console.error('Play error:', err));
+					video.play().catch((err) => console.error('Play error:', err));
 				}
 			};
 
@@ -128,70 +134,107 @@ const App: React.FC = () => {
 
 	const selectLevel = (index: number) => {
 		if (!hlsRef.current || !videoRef.current) return;
-		
+
 		const currentTime = videoRef.current.currentTime;
 		const wasPlaying = !videoRef.current.paused;
-		
+
 		console.log(`Switching to level ${index} at time ${currentTime}`);
-		
+
 		hlsRef.current.currentLevel = index;
-		
+
 		// Wait a bit for the level switch to take effect
 		setTimeout(() => {
 			if (videoRef.current) {
 				videoRef.current.currentTime = currentTime;
 				if (wasPlaying) {
-					videoRef.current.play().catch(err => console.error('Play error after switch:', err));
+					videoRef.current
+						.play()
+						.catch((err) => console.error('Play error after switch:', err));
 				}
 			}
 		}, 100);
 	};
 
 	return (
-		<div className='min-h-screen bg-gray-900 text-white p-4 sm:p-8 flex flex-col items-center'>
-			<h2 className='text-2xl sm:text-3xl font-bold mb-6'>🎥 HLS Player</h2>
-
-			<div className='w-full max-w-4xl bg-black rounded-lg shadow-xl overflow-hidden mb-6'>
-				<video
-					ref={videoRef}
-					controls={true}
-					playsInline={true}
-          autoPlay={true}
-					className='w-full h-full aspect-video'
-				/>
+		<div className='min-h-screen bg-linear-to-br from-pink-100 via-rose-50 to-purple-100 p-4 sm:p-8 flex flex-col items-center'>
+			<div className='absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-30'>
+				<div className='absolute top-10 left-10 text-6xl sparkle-animation'>
+					✨
+				</div>
+				<div
+					className='absolute top-20 right-20 text-5xl sparkle-animation'
+					style={{ animationDelay: '0.5s' }}
+				>
+					💅
+				</div>
+				<div
+					className='absolute bottom-20 left-20 text-5xl sparkle-animation'
+					style={{ animationDelay: '1s' }}
+				>
+					💖
+				</div>
+				<div
+					className='absolute bottom-32 right-32 text-6xl sparkle-animation'
+					style={{ animationDelay: '1.5s' }}
+				>
+					👗
+				</div>
 			</div>
 
-			{levels.length > 0 && (
-				<div className='w-full max-w-4xl bg-gray-800 p-4 rounded-lg shadow-xl'>
-					<h3 className='text-lg font-semibold mb-3'>Select Stream</h3>
-					<div className='flex flex-wrap gap-2'>
-						{/* <button
-							onClick={() => selectLevel(-1)}
-							className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-								currentLevel === -1
-									? 'bg-blue-600 text-white'
-									: 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-							}`}
-						>
-							Auto (ABR)
-						</button> */}
-
-						{levels.map((level) => (
-							<button
-								key={level.index}
-								onClick={() => selectLevel(level.index)}
-								className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-									currentLevel === level.index
-										? 'bg-blue-600 text-white'
-										: 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-								}`}
-							>
-								{level.name}
-							</button>
-						))}
-					</div>
+			<div className='relative z-10 w-full max-w-5xl'>
+				{/* Header */}
+				<div className='text-center mb-8'>
+					<h1 className='text-4xl sm:text-5xl font-bold mb-2 bg-linear-to-r from-pink-500 via-rose-400 to-purple-500 bg-clip-text text-transparent drop-shadow-sm'>
+						HSL Stream Gallery
+					</h1>
 				</div>
-			)}
+
+				{/* Video Container */}
+				<div className='w-full bg-white rounded-3xl shadow-2xl overflow-hidden mb-8 border-4 border-pink-200 relative'>
+					<video
+						ref={videoRef}
+						controls={true}
+						playsInline={true}
+						autoPlay={true}
+						className='w-full h-full aspect-video relative z-10'
+					/>
+				</div>
+
+				{/* Stream Selection */}
+				{levels.length > 0 && (
+					<div className='w-full bg-linear-to-br from-pink-50 to-rose-100 p-6 sm:p-8 rounded-3xl shadow-xl border-2 border-pink-200'>
+						<div className='flex items-center justify-center mb-6'>
+							<h3 className='text-xl sm:text-2xl font-bold text-pink-700 text-center'>
+								Select Your View
+							</h3>
+						</div>
+						<div className='flex flex-wrap justify-center gap-3 sm:gap-4'>
+							{levels.map((level) => (
+								<button
+									key={level.index}
+									onClick={() => selectLevel(level.index)}
+									className={`px-6 py-3 rounded-full text-base font-bold transition-all duration-300 transform hover:scale-105 shadow-lg ${
+										currentLevel === level.index
+											? 'bg-linear-to-r from-pink-500 to-rose-500 text-white shadow-pink-300 scale-105 ring-4 ring-pink-300'
+											: 'bg-white text-pink-600 hover:bg-pink-50 border-2 border-pink-300 hover:border-pink-400'
+									}`}
+								>
+									<span className='mr-2'>✨</span>
+									{level.name}
+									<span className='ml-2'>✨</span>
+								</button>
+							))}
+						</div>
+					</div>
+				)}
+
+				{/* Decorative bottom text */}
+				<div className='text-center mt-8'>
+					<p className='text-pink-400 text-sm font-light italic'>
+						~ Glamour in every frame ~
+					</p>
+				</div>
+			</div>
 		</div>
 	);
 };

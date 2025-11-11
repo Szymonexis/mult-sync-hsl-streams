@@ -1,1 +1,37 @@
 @import 'tailwindcss';
+
+/* Custom pink girly styles for fashion salon */
+@layer utilities {
+	.text-shadow-pink {
+		text-shadow: 2px 2px 4px rgba(244, 114, 182, 0.3);
+	}
+}
+
+/* Custom font for a more elegant look */
+body {
+	font-family: 'Inter', 'Segoe UI', 'Arial', sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth animations */
+* {
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sparkle animation for decorative elements */
+@keyframes sparkle {
+	0%,
+	100% {
+		opacity: 0.3;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.6;
+		transform: scale(1.1);
+	}
+}
+
+.sparkle-animation {
+	animation: sparkle 3s ease-in-out infinite;
+}
