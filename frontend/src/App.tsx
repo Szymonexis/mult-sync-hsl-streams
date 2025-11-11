@@ -22,7 +22,28 @@ const App: React.FC = () => {
 		if (!video) return;
 
 		if (Hls.isSupported()) {
-			const hls = new Hls();
+			const hls = new Hls({
+				debug: false,
+				enableWorker: true,
+				lowLatencyMode: false,
+				backBufferLength: 90,
+				maxBufferLength: 60,
+				maxMaxBufferLength: 120,
+				maxBufferSize: 60 * 1000 * 1000,
+				maxBufferHole: 0.5,
+				highBufferWatchdogPeriod: 2,
+				nudgeOffset: 0.1,
+				nudgeMaxRetry: 3,
+				maxFragLookUpTolerance: 0.25,
+				liveSyncDurationCount: 3,
+				liveMaxLatencyDurationCount: Infinity,
+				liveDurationInfinity: false,
+				manifestLoadingTimeOut: 10000,
+				manifestLoadingMaxRetry: 1,
+				manifestLoadingRetryDelay: 1000,
+				levelLoadingTimeOut: 10000,
+				levelLoadingMaxRetry: 4,
+			});
 			hlsRef.current = hls;
 
 			hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -39,13 +60,57 @@ const App: React.FC = () => {
 			});
 
 			hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+				console.log('Level switched to:', data.level);
 				setCurrentLevel(data.level);
 			});
 
+			// Handle errors
+			hls.on(Hls.Events.ERROR, (_, data) => {
+				// Ignore non-fatal fragParsingError for tiny fragments at the end
+				if (!data.fatal && data.details === 'fragParsingError') {
+					console.warn('Non-fatal fragment parsing error (likely empty end fragment), ignoring:', data);
+					return;
+				}
+				
+				console.error('HLS error:', data);
+				if (data.fatal) {
+					switch (data.type) {
+						case Hls.ErrorTypes.NETWORK_ERROR:
+							console.log('Network error, trying to recover...');
+							hls.startLoad();
+							break;
+						case Hls.ErrorTypes.MEDIA_ERROR:
+							console.log('Media error, trying to recover...');
+							hls.recoverMediaError();
+							break;
+						default:
+							console.log('Fatal error, destroying HLS instance');
+							hls.destroy();
+							break;
+					}
+				}
+			});
+
+			// Handle looping manually for VOD
+			const handleEnded = () => {
+				console.log('Video ended, looping...');
+				if (video && hlsRef.current) {
+					video.currentTime = 0;
+					video.play().catch(err => console.error('Play error:', err));
+				}
+			};
+
+			video.addEventListener('ended', handleEnded);
+
 			hls.loadSource(MASTER_PLAYLIST_URL);
 			hls.attachMedia(video);
+
+			return () => {
+				video.removeEventListener('ended', handleEnded);
+			};
 		} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
 			video.src = MASTER_PLAYLIST_URL;
+			video.loop = true;
 			console.warn(
 				'Using native HLS player — manual stream switching disabled.'
 			);
@@ -62,9 +127,24 @@ const App: React.FC = () => {
 	}, []);
 
 	const selectLevel = (index: number) => {
-		if (!hlsRef.current) return;
+		if (!hlsRef.current || !videoRef.current) return;
+		
+		const currentTime = videoRef.current.currentTime;
+		const wasPlaying = !videoRef.current.paused;
+		
+		console.log(`Switching to level ${index} at time ${currentTime}`);
+		
 		hlsRef.current.currentLevel = index;
-		setCurrentLevel(index);
+		
+		// Wait a bit for the level switch to take effect
+		setTimeout(() => {
+			if (videoRef.current) {
+				videoRef.current.currentTime = currentTime;
+				if (wasPlaying) {
+					videoRef.current.play().catch(err => console.error('Play error after switch:', err));
+				}
+			}
+		}, 100);
 	};
 
 	return (
@@ -76,7 +156,6 @@ const App: React.FC = () => {
 					ref={videoRef}
 					controls={true}
 					playsInline={true}
-          loop={true}
           autoPlay={true}
 					className='w-full h-full aspect-video'
 				/>
